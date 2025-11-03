@@ -17,10 +17,10 @@ with col_logo:
 with col_title:
     st.markdown(
         """
-        <div style='font-size: 30px; font-weight: 700; color: #0072CE;'>
+        <div style='font-size:30px;font-weight:700;color:#0072CE;'>
             Syndigo Attribute Count Checker
         </div>
-        <div style='font-size: 15px; color: #666;'>
+        <div style='font-size:15px;color:#666;'>
             Multi-tenant tool to check attribute usage counts via Syndigo API
         </div>
         """,
@@ -29,20 +29,26 @@ with col_title:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- Custom CSS Styling ---
+# --- Styling: compact spacing + blue headers + bold labels ---
 st.markdown(
     """
     <style>
-    .stTextInput>div>div>input {
+    /* Compact inputs */
+    .stTextInput > div > div > input {
         border-radius: 8px !important;
         border: 1px solid #ccc !important;
-        padding: 8px 10px !important;
+        padding: 6px 10px !important;
+        margin-top: -6px !important;
     }
-    .stTextInput>div>div>input:focus {
+
+    /* Focus border effect */
+    .stTextInput > div > div > input:focus {
         border-color: #0072CE !important;
         box-shadow: 0 0 0 1px #0072CE !important;
     }
-    .stButton>button {
+
+    /* Buttons */
+    .stButton > button {
         background-color: #0072CE !important;
         color: white !important;
         border-radius: 10px !important;
@@ -50,7 +56,7 @@ st.markdown(
         font-weight: 600 !important;
         border: none !important;
     }
-    .stDownloadButton>button {
+    .stDownloadButton > button {
         background-color: #00A651 !important;
         color: white !important;
         border-radius: 10px !important;
@@ -58,9 +64,22 @@ st.markdown(
         font-weight: 600 !important;
         border: none !important;
     }
-    /* Hide 'Press Enter to apply' message */
-    .stTextInput label div[data-testid="stMarkdownContainer"] p {
-        display: none !important;
+
+    /* Syndigo blue section headers */
+    div[data-testid="stMarkdownContainer"] h3 {
+        color: #0072CE !important;
+        font-weight: 700 !important;
+        margin-top: 0.6rem !important;
+        margin-bottom: 0.4rem !important;
+    }
+
+    /* Blue bold input labels */
+    div[data-testid="InputLabel"] p {
+        color: #0072CE !important;
+        font-weight: 800 !important;
+        font-size: 14px !important;
+        margin-bottom: -4px !important;
+        line-height: 1.1 !important;
     }
     </style>
     """,
@@ -68,22 +87,27 @@ st.markdown(
 )
 
 # --- Tenant & Entity Section ---
-st.markdown("### 🏢 Tenant & Entity Configuration")
+st.markdown("<h3 style='color:#0072CE;font-weight:700;'>🏢 Tenant & Entity Configuration</h3>", unsafe_allow_html=True)
 col1, col2 = st.columns(2)
 with col1:
-    tenant_name = st.text_input("Tenant Name", placeholder="e.g. charlottetilburyds")
+    st.markdown("<span style='color:#0072CE;font-weight:700;'>Tenant</span>", unsafe_allow_html=True)
+    tenant_name = st.text_input("", value="", key="tenant_input", label_visibility="collapsed")
 with col2:
-    entity_name = st.text_input("Entity Name", placeholder="e.g. finishedgood")
+    st.markdown("<span style='color:#0072CE;font-weight:700;'>Entity</span>", unsafe_allow_html=True)
+    entity_name = st.text_input("", value="", key="entity_input", label_visibility="collapsed")
 
 # --- Authentication Section ---
-st.markdown("### 🔐 Authentication Details")
+st.markdown("<h3 style='color:#0072CE;font-weight:700;'>🔐 Authentication Details</h3>", unsafe_allow_html=True)
 col3, col4, col5 = st.columns(3)
 with col3:
-    user_id = st.text_input("User ID", value="system")
+    st.markdown("<span style='color:#0072CE;font-weight:700;'>User ID</span>", unsafe_allow_html=True)
+    user_id = st.text_input("", value="system", key="user_input", label_visibility="collapsed")
 with col4:
-    client_id = st.text_input("Client ID", placeholder="Enter Client ID")
+    st.markdown("<span style='color:#0072CE;font-weight:700;'>Client ID</span>", unsafe_allow_html=True)
+    client_id = st.text_input("", value="", key="client_input", label_visibility="collapsed")
 with col5:
-    client_secret = st.text_input("Client Secret", placeholder="Enter Client Secret")  # not password-type anymore
+    st.markdown("<span style='color:#0072CE;font-weight:700;'>Client Secret</span>", unsafe_allow_html=True)
+    client_secret = st.text_input("", value="", key="secret_input", label_visibility="collapsed")
 
 # --- Submit Button ---
 submitted = st.button("🚀 Submit Configuration")
@@ -152,12 +176,43 @@ if st.session_state.get("configured", False):
                     if response.status_code == 200:
                         response_json = response.json()
                         count = response_json.get("response", {}).get("totalRecords", 0)
+                        sample_value = ""
+
+                        entities = response_json.get("response", {}).get("entities", [])
+                        if entities:
+                            attr_obj = (
+                                entities[0]
+                                .get("data", {})
+                                .get("attributes", {})
+                                .get(attribute, {})
+                            )
+
+                            if isinstance(attr_obj, dict):
+                                # Normal attribute
+                                if "values" in attr_obj:
+                                    vals = attr_obj["values"]
+                                    if vals and isinstance(vals[0], dict):
+                                        sample_value = vals[0].get("value", "")
+                                # Grouped attribute
+                                elif "group" in attr_obj:
+                                    groups = attr_obj["group"]
+                                    for g in groups:
+                                        if isinstance(g, dict):
+                                            for sub_attr, sub_data in g.items():
+                                                if isinstance(sub_data, dict) and "values" in sub_data:
+                                                    vals = sub_data["values"]
+                                                    if vals and isinstance(vals[0], dict):
+                                                        sample_value = vals[0].get("value", "")
+                                                        break
+                                            if sample_value:
+                                                break
                     else:
-                        count = f"Error {response.status_code}: {response.text}"
+                        count = f"Error {response.status_code}"
                 except Exception as e:
                     count = f"Error: {str(e)}"
+                    sample_value = ""
 
-                results.append({"Attribute": attribute, "Count": count})
+                results.append({"Attribute": attribute, "Count": count, "Sample Data": sample_value})
                 progress.progress((i + 1) / len(attributes))
                 status_text.text(f"Processed {i + 1}/{len(attributes)} attributes")
 
@@ -167,23 +222,15 @@ if st.session_state.get("configured", False):
             st.markdown("### 📊 Results")
             st.dataframe(result_df, use_container_width=True)
 
-            # --- Download Buttons ---
+            # Download buttons
             st.markdown("### 💾 Download Results")
             csv = result_df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Download CSV",
-                data=csv,
-                file_name="attribute_counts.csv",
-                mime="text/csv"
-            )
+            st.download_button("📥 Download CSV", csv, "attribute_counts.csv", "text/csv")
 
             excel_buffer = io.BytesIO()
             with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
                 result_df.to_excel(writer, index=False, sheet_name='Counts')
-
-            st.download_button(
-                label="📘 Download Excel",
-                data=excel_buffer.getvalue(),
-                file_name="attribute_counts.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+            st.download_button("📘 Download Excel",
+                               excel_buffer.getvalue(),
+                               "attribute_counts.xlsx",
+                               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
