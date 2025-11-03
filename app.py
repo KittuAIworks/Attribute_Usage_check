@@ -171,12 +171,15 @@ if st.session_state.get("configured", False):
                     }
                 }
 
+                attr_type = "Simple"
+                sample_value = ""
+                count = ""
+
                 try:
                     response = requests.post(API_URL, json=body, headers=headers)
                     if response.status_code == 200:
                         response_json = response.json()
                         count = response_json.get("response", {}).get("totalRecords", 0)
-                        sample_value = ""
 
                         entities = response_json.get("response", {}).get("entities", [])
                         if entities:
@@ -188,13 +191,8 @@ if st.session_state.get("configured", False):
                             )
 
                             if isinstance(attr_obj, dict):
-                                # Normal attribute
-                                if "values" in attr_obj:
-                                    vals = attr_obj["values"]
-                                    if vals and isinstance(vals[0], dict):
-                                        sample_value = vals[0].get("value", "")
-                                # Grouped attribute
-                                elif "group" in attr_obj:
+                                if "group" in attr_obj:  # Non-simple (grouped)
+                                    attr_type = "Non Simple"
                                     groups = attr_obj["group"]
                                     for g in groups:
                                         if isinstance(g, dict):
@@ -206,13 +204,23 @@ if st.session_state.get("configured", False):
                                                         break
                                             if sample_value:
                                                 break
+                                elif "values" in attr_obj:  # Simple
+                                    vals = attr_obj["values"]
+                                    if vals and isinstance(vals[0], dict):
+                                        sample_value = vals[0].get("value", "")
                     else:
                         count = f"Error {response.status_code}"
                 except Exception as e:
                     count = f"Error: {str(e)}"
                     sample_value = ""
 
-                results.append({"Attribute": attribute, "Count": count, "Sample Data": sample_value})
+                results.append({
+                    "Attribute": attribute,
+                    "Attribute Type": attr_type,
+                    "Count": count,
+                    "Sample Data": sample_value
+                })
+
                 progress.progress((i + 1) / len(attributes))
                 status_text.text(f"Processed {i + 1}/{len(attributes)} attributes")
 
@@ -222,7 +230,7 @@ if st.session_state.get("configured", False):
             st.markdown("### 📊 Results")
             st.dataframe(result_df, use_container_width=True)
 
-            # Download buttons
+            # --- Download Buttons ---
             st.markdown("### 💾 Download Results")
             csv = result_df.to_csv(index=False).encode('utf-8')
             st.download_button("📥 Download CSV", csv, "attribute_counts.csv", "text/csv")
@@ -230,7 +238,9 @@ if st.session_state.get("configured", False):
             excel_buffer = io.BytesIO()
             with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
                 result_df.to_excel(writer, index=False, sheet_name='Counts')
-            st.download_button("📘 Download Excel",
-                               excel_buffer.getvalue(),
-                               "attribute_counts.xlsx",
-                               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.download_button(
+                "📘 Download Excel",
+                excel_buffer.getvalue(),
+                "attribute_counts.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
